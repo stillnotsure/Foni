@@ -10,7 +10,7 @@ public class PlayerMovement : MonoBehaviour {
     public GameObject bulletPrefab;
     private GameObject enemy;
 
-    private enum states { idle, attacking, dashing };
+    private enum states { idle, attacking, chargingDash};
     private const string performAttackString =  "PerformAttack";
     public bool ableToAttack { get; set; } //While this is true, pressing the attack button will set the animation attacking bool to true
     private states state;
@@ -18,8 +18,10 @@ public class PlayerMovement : MonoBehaviour {
     public bool enemyInAttackZone {get; set;}
 
     public float runSpeed = 0.5f;
+    private float currentDashDistance;
     public float minDashDistance = 3f;
-    public float maxDashDistance = 6f;
+    public float maxDashDistance = 8f;
+    private float dashChargeDuration = 1.3f;
     public float moveToEnemySpeed = 5f;
 
     private bool canFire;
@@ -50,7 +52,11 @@ public class PlayerMovement : MonoBehaviour {
     }
 
 	void CheckInputs() {
-        if (Input.GetButtonDown("Dash"))
+        if (Input.GetButtonDown("Dash")) {
+            currentDashDistance = minDashDistance;
+            StartCoroutine(ChargeDash());
+        } else 
+        if (Input.GetButtonUp("Dash"))
             Dash();
         if (Input.GetButtonDown("Attack"))
             TryAttack();
@@ -66,16 +72,15 @@ public class PlayerMovement : MonoBehaviour {
 
 	// Update is called once per frame
 	void FixedUpdate () {
-        if (state == states.idle) {
-            float x = Input.GetAxis("Horizontal");
-            float y = Input.GetAxis("Vertical");
+        float x = Input.GetAxis("Horizontal");
+        float y = Input.GetAxis("Vertical");
+        if (state==states.idle)
             transform.Translate((x * runSpeed) * Time.fixedDeltaTime, 0, (y * runSpeed) * Time.fixedDeltaTime, Space.World);
-            if (x != 0 || y != 0) {
-                transform.rotation = Quaternion.LookRotation(new Vector3(x, 0, y));
-            }
-            //Todo - Check that this is correct, the original might let you shoot and attack at the same time
-            CheckShooting();
+        if (x != 0 || y != 0) {
+            transform.rotation = Quaternion.LookRotation(new Vector3(x, 0, y));
         }
+        //Todo - Check that this is correct, the original might let you shoot and attack at the same time
+        CheckShooting();
     }
 
     void CheckShooting() {
@@ -94,8 +99,22 @@ public class PlayerMovement : MonoBehaviour {
         bullet.transform.SetParent(GameObject.FindGameObjectWithTag("Bullet Holder").transform);
     }
 
+    public IEnumerator ChargeDash() {
+        state = states.chargingDash;
+        //Increase current dash distance by an amount depending on how much time has passed
+        //Get percentage of time elapse
+        while (Input.GetButton("Dash")) {
+            float chargeIncrement = (maxDashDistance - minDashDistance) * (dashChargeDuration * Time.deltaTime);
+            currentDashDistance = Mathf.Min(currentDashDistance + chargeIncrement, maxDashDistance);
+            yield return null;
+        }
+        Debug.Log("Charged to " + currentDashDistance);
+    }
+
     void Dash() {
-        transform.position = transform.forward * minDashDistance;
+        StopCoroutine("ChargeDash");
+        transform.position += transform.forward * currentDashDistance;
+        state = states.idle;
     }
 
     public void AttackImpact(int attackNumber) {
