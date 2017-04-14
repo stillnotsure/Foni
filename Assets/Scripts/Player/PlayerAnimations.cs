@@ -19,7 +19,11 @@ public class PlayerAnimations : MonoBehaviour {
         playerScript.ableToAttack = true;
     }
 
-    public void AttackImpact() {
-        playerScript.AttackImpact();
+    public void AttackImpact(int attackNumber) {
+        playerScript.AttackImpact(attackNumber);
+    }
+
+    public void FinishAttackState() {
+        playerScript.FinishAttack();
     }
 }

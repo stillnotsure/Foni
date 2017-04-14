@@ -10,7 +10,7 @@ public class PlayerMovement : MonoBehaviour {
     public GameObject bulletPrefab;
     private GameObject enemy;
 
-    private enum states { idle, attack1, attack2, attack3 };
+    private enum states { idle, attacking, dashing };
     private const string performAttackString =  "PerformAttack";
     public bool ableToAttack { get; set; } //While this is true, pressing the attack button will set the animation attacking bool to true
     private states state;
@@ -20,6 +20,7 @@ public class PlayerMovement : MonoBehaviour {
     public float runSpeed = 0.5f;
     public float minDashDistance = 3f;
     public float maxDashDistance = 6f;
+    public float moveToEnemySpeed = 5f;
 
     private bool canFire;
     private float fireRate = 0.25f;
@@ -57,6 +58,7 @@ public class PlayerMovement : MonoBehaviour {
 	
     void TryAttack() {
         if (ableToAttack) {
+            state = states.attacking;
             animator.SetBool(performAttackString, true);
             ableToAttack = false;
         }
@@ -64,13 +66,16 @@ public class PlayerMovement : MonoBehaviour {
 
 	// Update is called once per frame
 	void FixedUpdate () {
-        float x = Input.GetAxis("Horizontal");
-        float y = Input.GetAxis("Vertical");
-        transform.Translate((x * runSpeed) * Time.fixedDeltaTime, 0, (y * runSpeed) * Time.fixedDeltaTime, Space.World);
-        if (x != 0 || y != 0) {
-            transform.rotation = Quaternion.LookRotation(new Vector3(x, 0, y));
+        if (state == states.idle) {
+            float x = Input.GetAxis("Horizontal");
+            float y = Input.GetAxis("Vertical");
+            transform.Translate((x * runSpeed) * Time.fixedDeltaTime, 0, (y * runSpeed) * Time.fixedDeltaTime, Space.World);
+            if (x != 0 || y != 0) {
+                transform.rotation = Quaternion.LookRotation(new Vector3(x, 0, y));
+            }
+            //Todo - Check that this is correct, the original might let you shoot and attack at the same time
+            CheckShooting();
         }
-        CheckShooting();
     }
 
     void CheckShooting() {
@@ -90,13 +95,27 @@ public class PlayerMovement : MonoBehaviour {
     }
 
     void Dash() {
-        transform.position += transform.forward * minDashDistance;
+        transform.position = transform.forward * minDashDistance;
     }
 
-    public void AttackImpact() {
+    public void AttackImpact(int attackNumber) {
         if (enemyInAttackZone) {
-            Debug.Log("Hit the enemy");
+            Debug.Log("Hit the enemy with attack : " + attackNumber);
+            StartCoroutine(MoveToEnemy());
+            enemy.GetComponent<Enemy>().TakeDamage();
         }
+    }
+
+    public IEnumerator MoveToEnemy() {
+        Vector3 target = (transform.position + enemy.transform.position) / 2;
+        while ((transform.position - target).magnitude > 0.75f) {
+            transform.position = Vector3.MoveTowards(transform.position, target, moveToEnemySpeed * Time.deltaTime);
+            yield return null;
+        }
+    }
+
+    public void FinishAttack() {
+        state = states.idle;
     }
 
 }
